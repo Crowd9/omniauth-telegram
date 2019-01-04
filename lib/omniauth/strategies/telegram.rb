@@ -16,6 +16,7 @@ module OmniAuth
       
       FIELDS      = %w[id first_name last_name username photo_url auth_date hash]
       HASH_FIELDS = %w[auth_date first_name id last_name photo_url username]
+      MANDATORY_FIELDS = %w[id first_name last_name username auth_date hash]
       
       def request_phase
         html = <<-HTML
@@ -45,7 +46,7 @@ module OmniAuth
       end
       
       def callback_phase
-        unless FIELDS.all? { |f| request.params.include?(f) }
+        unless MANDATORY_FIELDS.all? { |f| request.params.include?(f) }
           fail!(:field_missing)
         end
         
@@ -84,7 +85,9 @@ module OmniAuth
       
       def check_signature
         secret = OpenSSL::Digest::SHA256.digest(options[:bot_secret])
-        signature = HASH_FIELDS.map { |f| "%s=%s" % [f, request.params[f]] }.join("\n")
+        signature = HASH_FIELDS.map do |f|
+          "%s=%s" % [f, request.params[f]] unless request.params[f].nil?
+        end.compact.join("\n")
         hashed_signature = OpenSSL::HMAC.hexdigest(OpenSSL::Digest::SHA256.new, secret, signature)
         
         request.params["hash"] == hashed_signature
